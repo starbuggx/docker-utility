@@ -25,13 +25,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image
+      - name: Build and push Docker image from main branch
+        if: github.ref_name == 'main'
         uses: docker/build-push-action@v6
         with:
           file: Dockerfile.jenkins-agent
           context: .
           push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ghcr.io/starbuggx/jenkins-agent-utility:latest
+
+      - name: Build and push Docker image from other branches
+        if: github.ref_name != 'main'
+        uses: docker/build-push-action@v6
+        with:
+          file: Dockerfile.jenkins-agent
+          context: .
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
             ghcr.io/starbuggx/jenkins-agent-utility:${{ github.ref_name }}
-          if: github.ref_name != 'main'
+          
