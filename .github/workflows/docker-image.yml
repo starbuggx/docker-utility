@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: Build and Push Docker Image
 
 on:
   push:
@@ -7,10 +7,21 @@ on:
     branches: ["main"]
 
 jobs:
-  build:
+  docker-build:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      packages: write  # Required to push to GHCR
+
     steps:
-      - uses: actions/checkout@v3
-      - name: Build the Docker image
-        run: docker build . --file Dockerfile.jenkins-agent --tag jenkins-agent-utility:latest
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v6
+      with:
+        file: Dockerfile.jenkins-agent
+        context: .
+        push: true
+        tags: ghcr.io/starbuggx/starjenkins-agent-utility:latest
