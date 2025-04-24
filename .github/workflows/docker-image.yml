@@ -2,7 +2,7 @@ name: Build and Push Docker Image
 
 on:
   push:
-    branches: ["main"]
+    # branches: ["main"]
   pull_request:
     branches: ["main"]
 
@@ -31,4 +31,7 @@ jobs:
           file: Dockerfile.jenkins-agent
           context: .
           push: true
-          tags: ghcr.io/starbuggx/jenkins-agent-utility:latest
+          tags: |
+            ghcr.io/starbuggx/jenkins-agent-utility:latest
+            ghcr.io/starbuggx/jenkins-agent-utility:${{ github.ref_name }}
+          if: github.ref_name != 'main'
