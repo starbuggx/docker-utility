@@ -27,10 +27,12 @@ jobs:
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           file: Dockerfile.jenkins-agent
           context: .
           push: true
           tags: ghcr.io/starbuggx/jenkins-agent-utility:latest
-          secrets: |
-            GH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          # secrets: |
+          #   GH_TOKEN=${{ secrets.GITHUB_TOKEN }}
