@@ -13,4 +13,4 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Build the Docker image
-        run: docker build . --file Dockerfile --tag jenkins-agent-utility:latest
+        run: docker build . --file Dockerfile.jenkins-agent --tag jenkins-agent-utility:latest
