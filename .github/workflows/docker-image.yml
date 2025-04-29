@@ -7,7 +7,7 @@ on:
     branches: ["main"]
 
 jobs:
-  docker-build:
+  docker-build-jenkins-agent:
     runs-on: ubuntu-latest
 
     permissions:
@@ -44,4 +44,41 @@ jobs:
           push: true
           tags: |
             ghcr.io/starbuggx/jenkins-agent-utility:${{ github.ref_name }}
+  docker-build-general-utility:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write # Required to push to GHCR
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image from main branch
+        if: github.ref_name == 'main'
+        uses: docker/build-push-action@v6
+        with:
+          file: Dockerfile.general-utility
+          context: .
+          push: true
+          tags: |
+            ghcr.io/starbuggx/ubuntu-utility:latest
+
+      - name: Build and push Docker image from other branches
+        if: github.ref_name != 'main'
+        uses: docker/build-push-action@v6
+        with:
+          file: Dockerfile.general-utility
+          context: .
+          push: true
+          tags: |
+            ghcr.io/starbuggx/ubuntu-utility:${{ github.ref_name }}
           

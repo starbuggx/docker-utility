@@ -1,0 +1,82 @@
+# Use the base image
+FROM ubuntu:24.04
+
+# Set non-interactive mode for tzdata
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=Pacific/Auckland
+
+# switch to root user
+USER root
+
+# Update system and install essential packages
+RUN apt-get update && apt full-upgrade -y && \
+    apt-get install -y \
+    apt-transport-https \
+    software-properties-common \
+    ca-certificates \
+    gnupg \
+    vim less procps iproute2 tcpdump netcat-openbsd iputils-ping dnsutils unzip zip traceroute htop curl git jq wget bash-completion \
+    python3-pip && \
+    ln -s /usr/bin/python3 /usr/bin/python
+
+# Install Python packages
+RUN pip install --break-system-packages yq ansible pywinrm
+
+# Install PowerShell
+RUN wget -q https://packages.microsoft.com/config/$(. /etc/os-release && echo "$ID")/$(lsb_release -sr)/packages-microsoft-prod.deb && \
+    dpkg -i packages-microsoft-prod.deb && apt-get update && \
+    apt-get install -y powershell && \
+    pwsh -Command "Install-Module -Name AWSPowerShell.NetCore -Force -Scope AllUsers" && \
+    pwsh -Command "Install-Module -Name Powershell-Yaml -Force -Scope AllUsers" && \
+    rm -rf packages-microsoft-prod.deb
+
+# Install Node.js 22
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs
+
+# Install AWS CLI
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && ./aws/install && \
+    bash -c 'complete -C "/usr/local/bin/aws_completer" aws' && \
+    rm -rf awscliv2.zip aws
+
+# Install Packer
+RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
+    apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" -y && \
+    apt-get update && apt-get install -y packer 
+
+# Install Kubernetes CLI (kubectl)
+RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg && \
+    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | \
+    tee /etc/apt/sources.list.d/kubernetes.list && \
+    apt-get update && apt-get install -y kubectl
+
+# Install Helm
+RUN curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | tee /usr/share/keyrings/helm.gpg > /dev/null && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/$(. /etc/os-release && echo "$ID")/ all main" | \
+    tee /etc/apt/sources.list.d/helm-stable-$(. /etc/os-release && echo "$ID").list && \
+    apt-get update && apt-get install -y helm
+
+# Install Docker CLI
+RUN install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg -o /etc/apt/keyrings/docker.asc && \
+    chmod a+r /etc/apt/keyrings/docker.asc && \
+    echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") \
+    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+    tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+    apt-get update && apt install -y docker-ce-cli
+
+# Set the values for SSH
+RUN cat <<EOF >> /etc/ssh/ssh_config
+PubkeyAcceptedKeyTypes +ssh-rsa
+HostkeyAlgorithms +ssh-rsa
+StrictHostKeyChecking no
+EOF
+
+#  clean up
+RUN apt-get clean -y \
+    && rm -rf /tmp/* /var/cache/* /var/lib/apt/lists/*
+
+# Set the values
+RUN echo "alias ll='ls -halF'" >> ~/.bashrc
