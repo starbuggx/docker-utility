@@ -34,7 +34,6 @@ jobs:
           push: true
           tags: |
             ghcr.io/starbuggx/jenkins-agent-utility:latest
-            ghcr.io/starbuggx/jenkins-agent-utility:1.0.0
 
       - name: Build and push Docker image from other branches
         if: github.ref_name != 'main'
