@@ -11,7 +11,7 @@ packer {
 source "docker" "jenkins-agent" {
   commit = true
   build {
-    path = "Dockerfile.jenkins.agent"
+    path = "Dockerfile.jenkins-agent"
   }
 }
 
@@ -22,12 +22,19 @@ build {
     # Tag the Docker image for Docker Hub
     post-processor "docker-tag" {
       repository = "starbuggx/jenkins-agent-utility"
-      tags       = ["latest"]
+      # tags       = ["latest"]
+      tags = [var.git_branch == "main" ? "latest" : var.git_branch]
     }
-
   }
+}
+
+# Variable for git branch
+variable "git_branch" {
+  type    = string
+  default = "latest"
 }
 
 # packer init
 # packer build jenkins-agent.pkr.hcl
+# packer build -var git_branch=$(git rev-parse --abbrev-ref HEAD) jenkins-agent.pkr.hcl
 # get credentials from .docker/config.json
