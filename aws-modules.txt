@@ -1,0 +1,17 @@
+CloudFormation
+CloudWatch
+CloudWatchLogs
+CognitoIdentityProvider
+Common
+EC2
+EKS
+IdentityManagement
+KeyManagementService
+Lambda
+Route53
+S3
+SecretsManager
+SecurityToken
+SimpleNotificationService
+SimpleSystemsManagement
+SQS

@@ -8,6 +8,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # switch to root user
 USER root
 
+# Copy the file into the image
+COPY aws-modules.txt /tmp/aws-modules.txt
+
 # Update system and install essential packages
 RUN apt-get update && apt full-upgrade -y && \
     apt-get install -y \
@@ -77,11 +80,12 @@ RUN wget -q https://packages.microsoft.com/config/$(. /etc/os-release && echo "$
     apt-get install -y powershell 
 
 # Install PowerShell modules
-RUN pwsh -Command "Set-PSRepository -Name PSGallery -InstallationPolicy Trusted; \
+RUN pwsh -Command 'Set-PSRepository -Name PSGallery -InstallationPolicy Trusted; \
     Install-Module -Name Powershell-Yaml -Force -Scope AllUsers; \
     Install-Module -Name AWS.Tools.Installer -Force -Scope AllUsers; \
     Import-Module AWS.Tools.Installer; \
-    Install-AWSToolsModule @(EC2,S3,Lambda) -CleanUp -Force -Scope AllUsers" \
+    $Modules = Get-Content /tmp/aws-modules.txt; \
+    Install-AWSToolsModule -Name $Modules -CleanUp -Force -Scope AllUsers' && \
     rm -rf packages-microsoft-prod.deb
 
 # Add the Jenkins user to the sudoers file
