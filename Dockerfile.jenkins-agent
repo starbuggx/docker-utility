@@ -26,8 +26,22 @@ RUN pip install --break-system-packages yq ansible pywinrm
 RUN wget -q https://packages.microsoft.com/config/$(. /etc/os-release && echo "$ID")/$(lsb_release -sr)/packages-microsoft-prod.deb && \
     dpkg -i packages-microsoft-prod.deb && apt-get update && \
     apt-get install -y powershell && \
+    pwsh -Command "Set-PSRepository -Name PSGallery -InstallationPolicy Trusted" && \
     pwsh -Command "Install-Module -Name AWSPowerShell.NetCore -Force -Scope AllUsers" && \
     pwsh -Command "Install-Module -Name Powershell-Yaml -Force -Scope AllUsers" && \
+    pwsh -Command "Install-Module -Name AWS.Tools.Common -Force -Scope AllUsers" && \
+    pwsh -Command "Install-Module -Name AWS.Tools.EC2 -Force -Scope AllUsers" && \
+    pwsh -Command "Install-Module -Name AWS.Tools.S3 -Force -Scope AllUsers" && \
+    pwsh -Command "Install-Module -Name AWS.Tools.Lambda -Force -Scope AllUsers" && \
+    pwsh -Command "Install-Module -Name AWS.Tools.CloudFormation -Force -Scope AllUsers" && \
+    pwsh -Command "Install-Module -Name AWS.Tools.IAM -Force -Scope AllUsers" && \
+    pwsh -Command "Install-Module -Name AWS.Tools.SSM -Force -Scope AllUsers" && \
+    pwsh -Command "Install-Module -Name AWS.Tools.SecretsManager -Force -Scope AllUsers" && \
+    pwsh -Command "Install-Module -Name AWS.Tools.EKS -Force -Scope AllUsers" && \
+    pwsh -Command "Install-Module -Name AWS.Tools.Route53 -Force -Scope AllUsers" && \
+    pwsh -Command "Install-Module -Name AWS.Tools.CloudWatchLogs -Force -Scope AllUsers" && \
+    pwsh -Command "Install-Module -Name AWS.Tools.CloudWatch -Force -Scope AllUsers" && \
+    pwsh -Command "Install-Module -Name AWS.Tools.SecurityToken -Force -Scope AllUsers" && \
     rm -rf packages-microsoft-prod.deb
 
 # Install Node.js 22
