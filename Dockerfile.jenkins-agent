@@ -14,7 +14,24 @@ RUN apt-get update && apt full-upgrade -y && \
   apt-transport-https \
   ca-certificates \
   gnupg \
-  vim less procps iproute2 tcpdump netcat-openbsd iputils-ping dnsutils unzip zip traceroute htop curl git jq wget bash-completion \
+  vim \
+  less \
+  procps \
+  iproute2 \
+  tcpdump \
+  netcat-openbsd \
+  iputils-ping \
+  dnsutils \
+  unzip \
+  zip \
+  lsb-release \
+  traceroute \
+  htop \
+  curl \
+  git \
+  jq \
+  wget \
+  bash-completion \
   python3-pip && \
   ln -s /usr/bin/python3 /usr/bin/python
 

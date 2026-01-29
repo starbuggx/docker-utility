@@ -34,7 +34,7 @@ variable "git_branch" {
   default = "latest"
 }
 
-# packer init
+# packer init jenkins-agent.pkr.hcl
 # packer build jenkins-agent.pkr.hcl
 # packer build -var git_branch=$(git rev-parse --abbrev-ref HEAD) jenkins-agent.pkr.hcl
 # get credentials from .docker/config.json
