@@ -12,49 +12,49 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER root
 
 # Update system and install essential packages
-RUN set -eux; \
-  rm -rf /var/lib/apt/lists/*; \
-  apt-get update; \
+RUN set -eux && \
+  rm -rf /var/lib/apt/lists/* && \
+  apt-get update && \
   apt-get install -y --no-install-recommends \
-    ca-certificates \
-    gnupg \
-    vim \
-    less \
-    procps \
-    iproute2 \
-    tcpdump \
-    netcat-openbsd \
-    iputils-ping \
-    dnsutils \
-    unzip \
-    zip \
-    lsb-release \
-    traceroute \
-    htop \
-    curl \
-    git \
-    jq \
-    wget \
-    bash-completion \
-    python3 \
-    python3-pip; \
-  ln -sf /usr/bin/python3 /usr/bin/python; \
-  apt-get clean; \
+  ca-certificates \
+  gnupg \
+  sudo \
+  vim \
+  less \
+  procps \
+  iproute2 \
+  tcpdump \
+  netcat-openbsd \
+  iputils-ping \
+  dnsutils \
+  unzip \
+  zip \
+  lsb-release \
+  traceroute \
+  htop \
+  curl \
+  git \
+  jq \
+  wget \
+  bash-completion \
+  python3 \
+  python3-pip && \
+  ln -sf /usr/bin/python3 /usr/bin/python && \
+  apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
 # Install Python packages
 RUN pip3 install --break-system-packages yq ansible pywinrm
 
 # Install PowerShell
-RUN wget -q https://packages.microsoft.com/config/$(. /etc/os-release && echo "$ID")/$(lsb_release -sr)/packages-microsoft-prod.deb; \
-  dpkg -i packages-microsoft-prod.deb; \
-  apt-get update; \
-  apt-get install -y powershell; \
-  pwsh -Command "Install-Module -Name AWSPowerShell.NetCore -Force -Scope AllUsers"; \
-  pwsh -Command "Install-Module -Name Powershell-Yaml -Force -Scope AllUsers"; \
-  rm -f packages-microsoft-prod.deb; \
-  apt-get clean; \
-  rm -rf /var/lib/apt/lists/*
+RUN PWSH_VERSION=7.6.1 && \
+  curl -fsSL "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/powershell_${PWSH_VERSION}-1.deb_amd64.deb" -o /tmp/powershell.deb && \
+  dpkg -i /tmp/powershell.deb; \
+  apt-get install -f -y && \
+  rm /tmp/powershell.deb && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/* && \
+  pwsh -Command "Install-Module -Name Powershell-Yaml -Force -Scope AllUsers"
 
 # Install Node.js 22
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
