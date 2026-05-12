@@ -1,5 +1,5 @@
 # Use the base image
-FROM jenkins/inbound-agent:bookworm-jdk21
+FROM jenkins/inbound-agent:latest-jdk21
 
 # Set non-interactive mode for tzdata
 ENV DEBIAN_FRONTEND=noninteractive \
