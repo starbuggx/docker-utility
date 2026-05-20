@@ -106,7 +106,7 @@ RUN npm install --global cdktf-cli@latest && \
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(. /etc/os-release && echo \"${VERSION_CODENAME:-$UBUNTU_CODENAME}\") main" | \
   tee /etc/apt/sources.list.d/hashicorp.list && \
   apt-get update && \
-  apt-get install -y terraform && \
+  apt-get install -y terraform=1.14.9* && \
   terraform -install-autocomplete && \
   rm -rf /var/lib/apt/lists/*
 
