@@ -44,10 +44,10 @@ RUN set -eux && \
   rm -rf /var/lib/apt/lists/*
 
 # Install Python packages
-RUN pip3 install --break-system-packages yq ansible pywinrm
+RUN pip3 install --break-system-packages yq ansible pywinrm boto3 botocore
 
 # Install PowerShell
-RUN PWSH_VERSION=7.6.1 && \
+RUN PWSH_VERSION=7.6.4 && \
   curl -fsSL "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/powershell_${PWSH_VERSION}-1.deb_amd64.deb" -o /tmp/powershell.deb && \
   dpkg -i /tmp/powershell.deb; \
   apt-get update && \
@@ -67,6 +67,11 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
   unzip awscliv2.zip && ./aws/install && \
   rm -rf awscliv2.zip aws
+
+# Install the AWS Session Manager plugin (required for the Ansible aws_ssm connection over SSM)
+RUN curl -fsSL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o /tmp/session-manager-plugin.deb && \
+  dpkg -i /tmp/session-manager-plugin.deb && \
+  rm -f /tmp/session-manager-plugin.deb
 
 # Install Packer
 RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && \
