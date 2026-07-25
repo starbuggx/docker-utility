@@ -43,8 +43,14 @@ RUN set -eux && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
-# Install Python packages
-RUN pip3 install --break-system-packages yq ansible pywinrm boto3 botocore
+# Install Python packages. boto3/botocore pinned >=1.35.0: amazon.aws 11.x (installed below)
+# is untested below that, and the aws_ssm Windows payload path misbehaves with older boto.
+RUN pip3 install --break-system-packages yq ansible pywinrm 'boto3>=1.35.0' 'botocore>=1.35.0'
+
+# The bundled ansible package pins amazon.aws 9.x (aws_ec2 inventory only). Install a newer
+# amazon.aws to a global collections path so the aws_ssm connection plugin is available; it
+# takes precedence over the bundled 9.x for every user, incl. the jenkins runtime user.
+RUN ansible-galaxy collection install 'amazon.aws:>=10.0.0' -p /usr/share/ansible/collections
 
 # Install PowerShell
 RUN PWSH_VERSION=7.6.4 && \
