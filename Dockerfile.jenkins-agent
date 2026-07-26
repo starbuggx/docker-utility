@@ -51,7 +51,7 @@ RUN pip3 install --break-system-packages yq ansible pywinrm 'boto3>=1.35.0' 'bot
 # to a global collections path: 10.x has the aws_ssm connection plugin but the Windows exec
 # fixes (PR #2909/#3013 - the "invalid payload" failures) only landed in 11.4.0. --force so it
 # upgrades over anything older; the global path takes precedence for the jenkins runtime user.
-RUN ansible-galaxy collection install 'amazon.aws:>=11.4.0' --force -p /usr/share/ansible/collections
+RUN ansible-galaxy collection install 'amazon.aws:>=11.4.0' 'community.aws:>=10.0.0' --force -p /usr/share/ansible/collections
 
 # Install PowerShell
 RUN PWSH_VERSION=7.6.4 && \
