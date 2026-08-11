@@ -68,11 +68,12 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2
   unzip awscliv2.zip && ./aws/install && \
   rm -rf awscliv2.zip aws
 
-# Install Packer
+# Install Packer and Terraform, which share the HashiCorp repo
 RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && \
   echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list && \
   apt-get update && \
-  apt-get install -y packer && \
+  apt-get install -y packer terraform=1.14.9* && \
+  terraform -install-autocomplete && \
   rm -rf /var/lib/apt/lists/*
 
 # Install Kubernetes CLI (kubectl)
@@ -97,21 +98,19 @@ RUN install -m 0755 -d /etc/apt/keyrings && \
   apt-get update && apt-get install -y docker-ce-cli && \
   rm -rf /var/lib/apt/lists/*
 
-# Install CDKTF CLI and Terraform
-RUN npm install --global cdktf-cli@latest && \
-  npm install --global cdktn-cli@latest && \
-  wget -O- https://apt.releases.hashicorp.com/gpg | \
-  gpg --dearmor | \
-  tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null && \
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(. /etc/os-release && echo \"${VERSION_CODENAME:-$UBUNTU_CODENAME}\") main" | \
-  tee /etc/apt/sources.list.d/hashicorp.list && \
-  apt-get update && \
-  apt-get install -y terraform=1.14.9* && \
-  terraform -install-autocomplete && \
+# Install Buildah for daemonless image builds
+# vfs and chroot are the settings that work when the agent itself runs unprivileged
+ENV STORAGE_DRIVER=vfs \
+  BUILDAH_ISOLATION=chroot
+RUN apt-get update && apt-get install -y buildah && \
   rm -rf /var/lib/apt/lists/*
 
-# Add the Jenkins user to the sudoers file
-RUN apt-get update && apt-get install -y sudo && echo "jenkins ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && rm -rf /var/lib/apt/lists/*
+# Install CDKTF CLI
+RUN npm install --global cdktf-cli@latest && \
+  npm install --global cdktn-cli@latest
+
+# Add the Jenkins user to the sudoers file; sudo comes from the essential packages above
+RUN echo "jenkins ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 # Set the values for SSH
 RUN cat <<EOF >> /etc/ssh/ssh_config
@@ -120,9 +119,8 @@ HostkeyAlgorithms +ssh-rsa
 StrictHostKeyChecking no
 EOF
 
-#  clean up
-RUN apt-get clean -y \
-  && rm -rf /tmp/* /var/cache/* /var/lib/apt/lists/*
+# Clear installer leftovers; apt lists are already removed per-layer above
+RUN rm -rf /tmp/* /var/cache/*
 
 # Set useful aliases in .bashrc for root and jenkins
 RUN echo "alias ll='ls -halF'" >> ~/.bashrc \
