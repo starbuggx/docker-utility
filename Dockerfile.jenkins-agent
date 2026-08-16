@@ -11,13 +11,45 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # switch to root user
 USER root
 
-# Update system and install essential packages
+# Tool versions in one place
+ARG PWSH_VERSION=7.6.4
+ARG TERRAFORM_VERSION=1.14.9*
+ARG NODE_MAJOR=22
+ARG K8S_MINOR=v1.34
+ARG GITVERSION_VERSION=5.12.0
+
+# Skip package docs and man pages; nothing in CI reads them
+RUN printf '%s\n' \
+  'path-exclude /usr/share/doc/*' \
+  'path-exclude /usr/share/man/*' \
+  'path-exclude /usr/share/info/*' \
+  'path-exclude /usr/share/groff/*' \
+  'path-exclude /usr/share/lintian/*' \
+  > /etc/dpkg/dpkg.cfg.d/01-nodoc
+
+# All apt work in one layer: third-party repos, then a single install, then cleanup.
+# Split across layers the cleanup reclaims nothing, because the files stay in the earlier layer.
 RUN set -eux && \
   rm -rf /var/lib/apt/lists/* && \
   apt-get update && \
   apt-get install -y --no-install-recommends \
-  ca-certificates \
-  gnupg \
+  ca-certificates curl gnupg lsb-release && \
+  install -m 0755 -d /etc/apt/keyrings && \
+  # HashiCorp repo, shared by Packer and Terraform
+  curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && \
+  echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" > /etc/apt/sources.list.d/hashicorp.list && \
+  # Kubernetes repo
+  curl -fsSL "https://pkgs.k8s.io/core:/stable:/${K8S_MINOR}/deb/Release.key" | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg && \
+  echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/${K8S_MINOR}/deb/ /" > /etc/apt/sources.list.d/kubernetes.list && \
+  # Docker repo
+  curl -fsSL "https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg" -o /etc/apt/keyrings/docker.asc && \
+  chmod a+r /etc/apt/keyrings/docker.asc && \
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list && \
+  # Node.js repo, added directly so the NodeSource setup script's own apt update is skipped
+  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \
+  apt-get update && \
+  apt-get install -y --no-install-recommends \
   sudo \
   vim \
   less \
@@ -29,105 +61,89 @@ RUN set -eux && \
   dnsutils \
   unzip \
   zip \
-  lsb-release \
   traceroute \
   htop \
-  curl \
   git \
   jq \
   wget \
   bash-completion \
   python3 \
-  python3-pip && \
+  python3-pip \
+  nodejs \
+  packer \
+  "terraform=${TERRAFORM_VERSION}" \
+  kubectl \
+  docker-ce-cli \
+  docker-buildx-plugin \
+  docker-compose-plugin && \
+  # Buildah keeps its recommends: they are the rootless helpers (fuse-overlayfs, slirp4netns)
+  apt-get install -y buildah && \
   ln -sf /usr/bin/python3 /usr/bin/python && \
+  terraform -install-autocomplete && \
   apt-get clean && \
-  rm -rf /var/lib/apt/lists/*
-
-# Install Python packages
-RUN pip3 install --break-system-packages yq ansible pywinrm
+  rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/*
 
 # Install PowerShell
-RUN PWSH_VERSION=7.6.1 && \
+RUN set -eux && \
   curl -fsSL "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/powershell_${PWSH_VERSION}-1.deb_amd64.deb" -o /tmp/powershell.deb && \
-  dpkg -i /tmp/powershell.deb; \
   apt-get update && \
-  apt-get install -f -y && \
-  rm /tmp/powershell.deb && \
+  # apt installs the local .deb and pulls its dependencies, so no dpkg -i then install -f dance
+  apt-get install -y --no-install-recommends /tmp/powershell.deb && \
+  pwsh -Command "Install-Module -Name Powershell-Yaml -Force -Scope AllUsers" && \
+  rm -f /tmp/powershell.deb && \
   apt-get clean && \
-  rm -rf /var/lib/apt/lists/* && \
-  pwsh -Command "Install-Module -Name Powershell-Yaml -Force -Scope AllUsers"
+  rm -rf /var/lib/apt/lists/* /var/cache/apt/* /root/.cache /tmp/*
 
-# Install Node.js 22
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
-  apt-get update && \
-  apt-get install -y nodejs && \
-  rm -rf /var/lib/apt/lists/*
-
-# Install AWS CLI
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-  unzip awscliv2.zip && ./aws/install && \
-  rm -rf awscliv2.zip aws
-
-# Install Packer and Terraform, which share the HashiCorp repo
-RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && \
-  echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list && \
-  apt-get update && \
-  apt-get install -y packer terraform=1.14.9* && \
-  terraform -install-autocomplete && \
-  rm -rf /var/lib/apt/lists/*
-
-# Install Kubernetes CLI (kubectl)
-RUN install -m 0755 -d /etc/apt/keyrings && \
-  curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.34/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg && \
-  echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.34/deb/ /' | \
-  tee /etc/apt/sources.list.d/kubernetes.list && \
-  apt-get update && apt-get install -y kubectl && \
-  rm -rf /var/lib/apt/lists/*
-
-# Install Helm from official GitHub releases
-RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-
-# Install Docker CLI
-RUN install -m 0755 -d /etc/apt/keyrings && \
-  curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg -o /etc/apt/keyrings/docker.asc && \
-  chmod a+r /etc/apt/keyrings/docker.asc && \
-  echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  tee /etc/apt/sources.list.d/docker.list > /dev/null && \
-  apt-get update && apt-get install -y docker-ce-cli && \
-  rm -rf /var/lib/apt/lists/*
-
-# Install Buildah for daemonless image builds
-# vfs and chroot are the settings that work when the agent itself runs unprivileged
-ENV STORAGE_DRIVER=vfs \
-  BUILDAH_ISOLATION=chroot
-RUN apt-get update && apt-get install -y buildah && \
-  rm -rf /var/lib/apt/lists/*
+# Install Python packages
+RUN set -eux && \
+  pip3 install --no-cache-dir --break-system-packages yq ansible pywinrm && \
+  rm -rf /root/.cache /tmp/*
 
 # Install CDKTF CLI
-RUN npm install --global cdktf-cli@latest && \
-  npm install --global cdktn-cli@latest
+RUN set -eux && \
+  npm install --global cdktf-cli@latest cdktn-cli@latest && \
+  npm cache clean --force && \
+  rm -rf /root/.npm /tmp/*
 
-# Add the Jenkins user to the sudoers file; sudo comes from the essential packages above
-RUN echo "jenkins ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+# Install AWS CLI, Helm and GitVersion
+# GitVersion ships the self-contained build, so no dotnet runtime is needed.
+# It is a .NET binary and the base image has no libicu, so the wrapper sets
+# invariant globalization for GitVersion only rather than a 36 MB ICU install.
+RUN set -eux && \
+  curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip && \
+  unzip -q /tmp/awscliv2.zip -d /tmp && \
+  /tmp/aws/install && \
+  curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash && \
+  mkdir -p /opt/gitversion && \
+  curl -fsSL "https://github.com/GitTools/GitVersion/releases/download/${GITVERSION_VERSION}/gitversion-linux-x64-${GITVERSION_VERSION}.tar.gz" -o /tmp/gitversion.tar.gz && \
+  tar -xzf /tmp/gitversion.tar.gz -C /opt/gitversion && \
+  chmod 0755 /opt/gitversion/gitversion && \
+  printf '%s\n' \
+  '#!/bin/sh' \
+  'export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1' \
+  'exec /opt/gitversion/gitversion "$@"' \
+  > /usr/local/bin/gitversion && \
+  chmod 0755 /usr/local/bin/gitversion && \
+  # pipelines written against the container image call the tool by this name
+  ln -sf /usr/local/bin/gitversion /usr/local/bin/dotnet-gitversion && \
+  gitversion /version && \
+  rm -rf /tmp/awscliv2.zip /tmp/aws /tmp/gitversion.tar.gz /root/.cache /tmp/*
 
-# Set the values for SSH
-RUN cat <<EOF >> /etc/ssh/ssh_config
-PubkeyAcceptedKeyTypes +ssh-rsa
-HostkeyAlgorithms +ssh-rsa
-StrictHostKeyChecking no
-EOF
+# Agent configuration: sudoers, SSH defaults and shell aliases
+RUN set -eux && \
+  echo "jenkins ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
+  printf '%s\n' \
+  'PubkeyAcceptedKeyTypes +ssh-rsa' \
+  'HostkeyAlgorithms +ssh-rsa' \
+  'StrictHostKeyChecking no' \
+  >> /etc/ssh/ssh_config && \
+  echo "alias ll='ls -halF'" >> /root/.bashrc && \
+  echo "starbuggx-jenkins-agent" >> /root/starbuggx-jenkins-agent && \
+  echo "alias ll='ls -halF'" >> /home/jenkins/.bashrc
 
-# Clear installer leftovers; apt lists are already removed per-layer above
-RUN rm -rf /tmp/* /var/cache/*
-
-# Set useful aliases in .bashrc for root and jenkins
-RUN echo "alias ll='ls -halF'" >> ~/.bashrc \
-  && echo "starbuggx-jenkins-agent" >> ~/starbuggx-jenkins-agent
+# Buildah settings that work when the agent itself runs unprivileged
+ENV STORAGE_DRIVER=vfs \
+  BUILDAH_ISOLATION=chroot
 
 # Switch back to the jenkins user
 USER jenkins
-
-# Set the values
-RUN echo "alias ll='ls -halF'" >> ~/.bashrc
