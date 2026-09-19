@@ -12,10 +12,10 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER root
 
 # Tool versions in one place
-ARG PWSH_VERSION=7.6.4
+ARG PWSH_VERSION=7.6.6
 ARG TERRAFORM_VERSION=1.14.9*
 ARG NODE_MAJOR=22
-ARG K8S_MINOR=v1.34
+ARG K8S_MINOR=v1.35
 ARG GITVERSION_VERSION=5.12.0
 
 # Skip package docs and man pages; nothing in CI reads them
